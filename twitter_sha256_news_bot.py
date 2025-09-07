@@ -36,8 +36,11 @@ RETENTION_DAYS = 7
 
 def load_tweeted_articles():
     if os.path.exists(STORE_FILE):
-        with open(STORE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(STORE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return {}
     return {}
 
 
