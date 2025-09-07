@@ -1,5 +1,8 @@
 import os
 import re
+import json
+import time
+
 from eventregistry import EventRegistry, QueryArticlesIter, QueryItems
 import tweepy
 from dotenv import load_dotenv
@@ -21,11 +24,38 @@ if not all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
     )
 
 # Authenticate to Twitter
-auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+auth = tweepy.OAuth1UserHandler(
+    API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET
+)
 api = tweepy.API(auth)
+
+# Persistent store for tweeted article URLs
+STORE_FILE = "tweeted_articles.json"
+RETENTION_DAYS = 7
+
+
+def load_tweeted_articles():
+    if os.path.exists(STORE_FILE):
+        with open(STORE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def save_tweeted_articles(data):
+    with open(STORE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+
+
+def cleanup_old_entries(data):
+    threshold = time.time() - RETENTION_DAYS * 24 * 60 * 60
+    removed = [url for url, ts in data.items() if ts < threshold]
+    for url in removed:
+        del data[url]
+    return removed
 
 def get_latest_headlines():
     """Fetch recent article titles and URLs from EventRegistry."""
+
     er = EventRegistry(apiKey=os.getenv("NEWS_API_KEY"))
     keywords = QueryItems.AND(os.getenv("NEWS_QUERY", "").split(","))
     query = QueryArticlesIter(keywords=keywords)
@@ -34,7 +64,7 @@ def get_latest_headlines():
         title = article.get("title")
         url = article.get("url")
         if title and url:
-            headlines.append(f"{title} {url}")
+            headlines.append((title, url))
         if len(headlines) >= 5:
             break
     return headlines
@@ -75,12 +105,21 @@ def truncate_headline(headline: str, max_length: int = 280) -> str:
     return headline[:max_length]
 
 def main():
+    tweeted = load_tweeted_articles()
+    cleanup_old_entries(tweeted)
+    save_tweeted_articles(tweeted)
+
     headlines = get_latest_headlines()
-    for headline in headlines:
+    for title, url in headlines:
+        if url in tweeted:
+            print(f"Skipping already tweeted article: {url}")
+            continue
         try:
-            tweet = truncate_headline(headline)
+            tweet = truncate_headline(f"{title} {url}")
             api.update_status(status=tweet)
-            print(f"Tweeted: {headline}")
+            tweeted[url] = time.time()
+            save_tweeted_articles(tweeted)
+            print(f"Tweeted: {title} {url}")
         except Exception as e:
             print(f"Error tweeting: {e}")
 
