@@ -7,6 +7,7 @@ This bot uses NewsAPI's Python SDK to search for SHA256 Bitcoin mining news and 
 
 - Fetches SHA256 Bitcoin mining news via NewsAPI queries
 - Tweets headlines to a configured Twitter account
+- Avoids posting the same article twice using a local history store
 - Securely loads Twitter and NewsAPI credentials from a `.env` file (not included in repo)
 
 ## Setup
