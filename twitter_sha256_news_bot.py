@@ -11,12 +11,20 @@ API_SECRET = os.getenv("TWITTER_API_SECRET")
 ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("TWITTER_ACCESS_TOKEN_SECRET")
 
+# Validate credentials before authenticating
+if not all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
+    raise RuntimeError(
+        "Missing Twitter API credentials. Ensure TWITTER_API_KEY, "
+        "TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN and "
+        "TWITTER_ACCESS_TOKEN_SECRET are set."
+    )
+
 # Authenticate to Twitter
 auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 api = tweepy.API(auth)
 
 # RSS feeds from .env (comma-separated)
-RSS_FEEDS = os.getenv("RSS_FEEDS", "").split(",")
+RSS_FEEDS = [url.strip() for url in os.getenv("RSS_FEEDS", "").split(",") if url.strip()]
 
 def get_latest_headlines(feed_url):
     headlines = []
@@ -26,6 +34,10 @@ def get_latest_headlines(feed_url):
     return headlines
 
 def main():
+    if not RSS_FEEDS:
+        print("No RSS feeds configured. Set RSS_FEEDS in environment.")
+        return
+
     for feed_url in RSS_FEEDS:
         headlines = get_latest_headlines(feed_url)
         for headline in headlines:
