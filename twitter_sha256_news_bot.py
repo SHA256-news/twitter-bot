@@ -1,4 +1,5 @@
 import os
+import re
 from eventregistry import EventRegistry, QueryArticlesIter, QueryItems
 import tweepy
 from dotenv import load_dotenv
@@ -38,11 +39,47 @@ def get_latest_headlines():
             break
     return headlines
 
+
+def truncate_headline(headline: str, max_length: int = 280) -> str:
+    """Truncate headline to fit within Twitter's character limit.
+
+    Twitter wraps URLs with t.co, reducing each URL to 23 characters
+    regardless of its original length. This function accounts for that
+    shortening when calculating the effective length of a tweet.
+
+    Parameters
+    ----------
+    headline: str
+        The headline text, typically including a URL.
+    max_length: int
+        Maximum allowed length for the tweet. Default is 280 characters.
+
+    Returns
+    -------
+    str
+        The headline truncated to fit within the length constraint.
+    """
+
+    urls = re.findall(r"https?://\S+", headline)
+    effective_length = len(headline) + sum(23 - len(url) for url in urls)
+    if effective_length <= max_length:
+        return headline
+
+    if urls:
+        # Keep only the last URL (assumed to be at the end of the headline)
+        last_url = urls[-1]
+        prefix = headline[: headline.rfind(last_url)].rstrip()
+        allowed = max_length - 23 - (1 if prefix else 0)
+        return f"{prefix[:allowed]}{' ' if prefix else ''}{last_url}"
+
+    return headline[:max_length]
+
 def main():
     headlines = get_latest_headlines()
     for headline in headlines:
         try:
-            api.update_status(status=headline)
+            tweet = truncate_headline(headline)
+            api.update_status(status=tweet)
             print(f"Tweeted: {headline}")
         except Exception as e:
             print(f"Error tweeting: {e}")
