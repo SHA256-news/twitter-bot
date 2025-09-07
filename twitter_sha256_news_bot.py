@@ -2,6 +2,7 @@ import os
 import re
 import json
 import time
+import logging
 
 from eventregistry import EventRegistry, QueryArticlesIter, QueryItems
 import tweepy
@@ -33,6 +34,8 @@ api = tweepy.API(auth)
 STORE_FILE = "tweeted_articles.json"
 RETENTION_DAYS = 7
 
+logger = logging.getLogger(__name__)
+
 
 def load_tweeted_articles():
     if os.path.exists(STORE_FILE):
@@ -58,18 +61,28 @@ def cleanup_old_entries(data):
 
 def get_latest_headlines():
     """Fetch recent article titles and URLs from EventRegistry."""
+    api_key = os.getenv("NEWS_API_KEY")
+    query_terms = os.getenv("NEWS_QUERY")
+    if not api_key:
+        raise RuntimeError("NEWS_API_KEY environment variable is not set.")
+    if not query_terms:
+        raise RuntimeError("NEWS_QUERY environment variable is not set.")
 
-    er = EventRegistry(apiKey=os.getenv("NEWS_API_KEY"))
-    keywords = QueryItems.AND(os.getenv("NEWS_QUERY", "").split(","))
-    query = QueryArticlesIter(keywords=keywords)
     headlines = []
-    for article in query.execQuery(er):
-        title = article.get("title")
-        url = article.get("url")
-        if title and url:
-            headlines.append((title, url))
-        if len(headlines) >= 5:
-            break
+    try:
+        er = EventRegistry(apiKey=api_key)
+        keywords = QueryItems.AND(query_terms.split(","))
+        query = QueryArticlesIter(keywords=keywords)
+        for article in query.execQuery(er):
+            title = article.get("title")
+            url = article.get("url")
+            if title and url:
+                headlines.append((title, url))
+            if len(headlines) >= 5:
+                break
+    except Exception as e:
+        logger.error("Error fetching headlines: %s", e)
+        return []
     return headlines
 
 
