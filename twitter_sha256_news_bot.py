@@ -10,25 +10,25 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Twitter API credentials from .env
-API_KEY = os.getenv("TWITTER_API_KEY")
-API_SECRET = os.getenv("TWITTER_API_SECRET")
-ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
-ACCESS_TOKEN_SECRET = os.getenv("TWITTER_ACCESS_TOKEN_SECRET")
 
-# Validate credentials before authenticating
-if not all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
-    raise RuntimeError(
-        "Missing Twitter API credentials. Ensure TWITTER_API_KEY, "
-        "TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN and "
-        "TWITTER_ACCESS_TOKEN_SECRET are set."
+def create_api():
+    """Create and authenticate a Tweepy API client."""
+    api_key = os.getenv("TWITTER_API_KEY")
+    api_secret = os.getenv("TWITTER_API_SECRET")
+    access_token = os.getenv("TWITTER_ACCESS_TOKEN")
+    access_token_secret = os.getenv("TWITTER_ACCESS_TOKEN_SECRET")
+
+    if not all([api_key, api_secret, access_token, access_token_secret]):
+        raise RuntimeError(
+            "Missing Twitter API credentials. Ensure TWITTER_API_KEY, "
+            "TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN and "
+            "TWITTER_ACCESS_TOKEN_SECRET are set."
+        )
+
+    auth = tweepy.OAuth1UserHandler(
+        api_key, api_secret, access_token, access_token_secret
     )
-
-# Authenticate to Twitter
-auth = tweepy.OAuth1UserHandler(
-    API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET
-)
-api = tweepy.API(auth)
+    return tweepy.API(auth)
 
 # Persistent store for tweeted article URLs
 STORE_FILE = "tweeted_articles.json"
@@ -122,6 +122,7 @@ def truncate_headline(headline: str, max_length: int = 280) -> str:
     return headline[:max_length]
 
 def main():
+    api = create_api()
     tweeted = load_tweeted_articles()
     cleanup_old_entries(tweeted)
     save_tweeted_articles(tweeted)
