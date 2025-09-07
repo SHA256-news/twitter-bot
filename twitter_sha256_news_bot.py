@@ -2,6 +2,7 @@ import os
 import re
 import json
 import time
+import logging
 
 from eventregistry import EventRegistry, QueryArticlesIter, QueryItems
 import tweepy
@@ -39,7 +40,8 @@ def load_tweeted_articles():
         try:
             with open(STORE_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, OSError) as e:
+            logging.warning("Failed to read store file: %s", e)
             return {}
     return {}
 
