@@ -1,5 +1,5 @@
 import os
-import feedparser
+from eventregistry import EventRegistry, QueryArticlesIter, QueryItems
 import tweepy
 from dotenv import load_dotenv
 
@@ -23,29 +23,29 @@ if not all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
 auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 api = tweepy.API(auth)
 
-# RSS feeds from .env (comma-separated)
-RSS_FEEDS = [url.strip() for url in os.getenv("RSS_FEEDS", "").split(",") if url.strip()]
-
-def get_latest_headlines(feed_url):
+def get_latest_headlines():
+    """Fetch recent article titles and URLs from EventRegistry."""
+    er = EventRegistry(apiKey=os.getenv("NEWS_API_KEY"))
+    keywords = QueryItems.AND(os.getenv("NEWS_QUERY", "").split(","))
+    query = QueryArticlesIter(keywords=keywords)
     headlines = []
-    feed = feedparser.parse(feed_url)
-    for entry in feed.entries[:5]:  # Get top 5 headlines
-        headlines.append(f"{entry.title} {entry.link}")
+    for article in query.execQuery(er):
+        title = article.get("title")
+        url = article.get("url")
+        if title and url:
+            headlines.append(f"{title} {url}")
+        if len(headlines) >= 5:
+            break
     return headlines
 
 def main():
-    if not RSS_FEEDS:
-        print("No RSS feeds configured. Set RSS_FEEDS in environment.")
-        return
-
-    for feed_url in RSS_FEEDS:
-        headlines = get_latest_headlines(feed_url)
-        for headline in headlines:
-            try:
-                api.update_status(status=headline)
-                print(f"Tweeted: {headline}")
-            except Exception as e:
-                print(f"Error tweeting: {e}")
+    headlines = get_latest_headlines()
+    for headline in headlines:
+        try:
+            api.update_status(status=headline)
+            print(f"Tweeted: {headline}")
+        except Exception as e:
+            print(f"Error tweeting: {e}")
 
 if __name__ == "__main__":
     main()
